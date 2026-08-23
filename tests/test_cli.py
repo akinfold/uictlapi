@@ -1,6 +1,4 @@
 import json
-import os
-import pytest
 from uictlapi import cli
 
 
@@ -35,14 +33,17 @@ def test_request_uses_json_and_auth(monkeypatch):
         captured["method"] = method
         captured["url"] = url
         captured["kwargs"] = kwargs
-        class Dummy: pass
+
+        class Dummy:
+            pass
+
         return Dummy()
 
     # make UnifiControllerAuth return a sentinel object
     monkeypatch.setattr(cli, "UnifiControllerAuth", lambda u, p, h: ("AUTHOBJ", u, p, h))
     monkeypatch.setattr(cli.requests, "request", fake_request)
 
-    resp = cli._request(
+    cli._request(
         method="POST",
         url="http://example.test",
         headers={"H": "v"},
@@ -67,7 +68,10 @@ def test_request_data_file_and_multiple(monkeypatch, tmp_path):
 
     def fake_request(method, url, **kwargs):
         calls.append(kwargs)
-        class Dummy: pass
+
+        class Dummy:
+            pass
+
         return Dummy()
 
     monkeypatch.setattr(cli, "UnifiControllerAuth", lambda u, p, h: None)
@@ -151,3 +155,12 @@ def test_print_response_output_and_status_only(tmp_path, capsys):
     cli._print_response(_make_dummy_response(status=404, content=b""), show_headers=False, pretty=False, output=None, status_only=True)
     out = capsys.readouterr().out
     assert "404" in out
+
+def test_cli_version():
+    from click.testing import CliRunner
+    from uictlapi import __version__
+    from uictlapi.cli import cli as cli_group
+
+    result = CliRunner().invoke(cli_group, ["--version"])
+    assert result.exit_code == 0
+    assert __version__ in result.output

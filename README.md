@@ -1,33 +1,74 @@
 # uictlapi
-The Ubiquiti Unifi Controller API command line client. Takes care of authentification and CSRF handling and provides convenient curl like interface which makes available use all the features available in the Web UI.
+
+[![PYPI](https://img.shields.io/pypi/v/uictlapi)](https://pypi.org/project/uictlapi/)
+[![Docker Image](https://img.shields.io/docker/v/akinfold/uictlapi?label=docker&sort=semver)](https://hub.docker.com/r/akinfold/uictlapi)
+[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/akinfold/uictlapi/blob/main/LICENSE)
+
+Curl-like CLI for the UniFi Controller / UniFi OS Web UI API — with login and CSRF
+handled for you.
+
+Auth and CSRF come from
+[`requests-unifi-auth`](https://github.com/akinfold/requests-unifi-auth). This package is
+only the HTTP CLI: any Web UI / proxy URL, any method. It is **not** a typed UniFi SDK and
+does not invent domain commands (`routes apply`, inventory, multi-controller orchestration).
+
+Live auth/CSRF compatibility against real controllers is tracked in
+[`requests-unifi-auth` COMPATIBILITY.md](https://github.com/akinfold/requests-unifi-auth/blob/main/COMPATIBILITY.md).
 
 ## Installation
 
-### Using pip
+### pip
+
 ```bash
 pip install uictlapi
 ```
 
-### Using Docker
+Requires `requests-unifi-auth>=0.1.5`. First PyPI release is **0.1.1** (tag `v0.1.1`);
+until then use Docker or an editable install from this repository.
+
+### Docker
+
 ```bash
-# Run directly
 docker run --rm akinfold/uictlapi:latest --help
-
-# Example usage
-docker run --rm akinfold/uictlapi:latest get -a user:pass@controller.local https://controller.local/proxy/network/v2/api/site/default/trafficroutes
 ```
 
-## Publishing to Docker Hub
+## Usage
 
-The image on Docker Hub is https://hub.docker.com/repository/docker/akinfold/uictlapi  
-
-Releases are built and pushed by GitHub Actions for evry **semantic version tag** (for example `v0.1.0`).
-
-For example:
+Auth string: `user:pass@host` (or `@/path/to/file` containing the same).
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+# Read traffic routes (policy-based routing)
+uictlapi get -a 'user:pass@192.168.1.1' --no-verify \
+  'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
+
+# Same via Docker
+docker run --rm akinfold/uictlapi:latest get -a 'user:pass@192.168.1.1' --no-verify \
+  'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
+
+# POST JSON body (from string or @file)
+uictlapi post -a 'user:pass@192.168.1.1' --no-verify \
+  -j '{"enabled":true}' \
+  'https://192.168.1.1/proxy/network/v2/api/site/default/some-endpoint'
+
+uictlapi --version
 ```
 
-The workflow publishes version tags (for example `0.1.0`, `0.1`) and updates **`latest`** when the release is the highest non-prerelease semver tag (`latest=auto`).
+Common flags mirror curl-ish habits: `-H` / `-p` / `-d` / `-j` / `-o` / `--show-headers` /
+`--status-only` / `--no-verify` / `-t`. Exit status `1` on HTTP ≥ 400, `2` on transport errors.
+
+## Releasing
+
+Version lives in `pyproject.toml` and `src/uictlapi/__init__.py`. Bump on `main` first
+(GitHub Actions → **Bump version**, or locally with `bump-my-version`), then:
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+The **Publish** workflow runs tests, uploads to PyPI, pushes multi-arch Docker images
+(`0.1.1`, `0.1`, `latest` when appropriate), and creates a GitHub Release.
+
+## License
+
+MIT

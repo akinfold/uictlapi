@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0", "wheel", "build"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "uictlapi"
 version = "0.1.0"
-description = "The Ubiquiti Unifi Controller API command line client. Takes care of authentification and CSRF handling and provides convenient curl like interface which makes available use all the features available in the Web UI."
+description = "Curl-like CLI for the UniFi Controller / UniFi OS Web UI API, with login and CSRF handled for you."
 readme = "README.md"
 authors = [{name = "Roman Akinfeev", email = "akinfold@gmail.com"}]
 license = {text = "MIT"}
@@ -13,7 +13,7 @@ requires-python = ">=3.8"
 dependencies = [
     "click>=8.0.0",
     "requests>=2.25.0",
-    "requests-unifi-auth>=0.1.0",
+    "requests-unifi-auth>=0.1.5",
 ]
 keywords = ["unifi", "ubiquiti", "api", "cli", "networking", "controller", "docker"]
 classifiers = [
@@ -28,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Internet",
     "Topic :: System :: Networking",
     "Topic :: Utilities",
@@ -45,7 +46,11 @@ uictlapi = "uictlapi.cli:cli"
 test = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    "ruff>=0.8.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -58,16 +63,82 @@ addopts = [
     "--strict-config",
     "-ra",
     "--showlocals",
-    "--tb=short"
+    "--tb=short",
 ]
 
 [tool.coverage.run]
 source = ["src/"]
 omit = [
     "*/tests/*",
-    "*/test_*"
+    "*/test_*",
 ]
 
-[tool.poetry.scripts]
-build-docker = "scripts.docker:build"
-push-docker = "scripts.docker:push"
+[tool.bumpversion]
+current_version = "0.1.0"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+# Tag separately and push vX.Y.Z to trigger publish.yml
+tag = false
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Release v{new_version}"
+allow_dirty = false
+commit = true
+message = "Bump version to {new_version}"
+commit_args = ""
+
+[[tool.bumpversion.files]]
+filename = "src/uictlapi/__init__.py"
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+line-length = 88
+indent-width = 4
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

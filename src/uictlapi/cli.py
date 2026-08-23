@@ -8,6 +8,8 @@ import requests
 
 from requests_unifi_auth import UnifiControllerAuth
 
+from . import __version__
+
 AUTH_REGEXP = re.compile(r'^(?P<username>[^:]+):(?P<password>[^@]+)@(?P<host>[^\s]+)\s*')
 """Match auth strings like 'foo:bar@192.168.1.1'."""
 
@@ -169,8 +171,9 @@ def common_options(func):
 
 
 @click.group()
+@click.version_option(version=__version__, prog_name="uictlapi")
 def cli():
-    """Simple requests-like CLI using click."""
+    """Curl-like CLI for the UniFi Controller / UniFi OS Web UI API."""
     pass
 
 
