@@ -1,7 +1,7 @@
 # uictlapi
 
-[![PYPI](https://img.shields.io/pypi/v/uictlapi)](https://pypi.org/project/uictlapi/)
-[![Docker Image](https://img.shields.io/docker/v/akinfold/uictlapi?label=docker&sort=semver)](https://hub.docker.com/r/akinfold/uictlapi)
+[![PyPI](https://img.shields.io/pypi/v/uictlapi.svg?logo=pypi&logoColor=white)](https://pypi.org/project/uictlapi/)
+[![Docker](https://img.shields.io/docker/v/akinfold/uictlapi/latest?logo=docker&logoColor=white&label=docker)](https://hub.docker.com/r/akinfold/uictlapi)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/akinfold/uictlapi/blob/main/LICENSE)
 
 Curl-like CLI for the UniFi Controller / UniFi OS Web UI API — with login and CSRF
