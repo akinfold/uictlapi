@@ -1,0 +1,73 @@
+# Watch PyPI for a newer requests-unifi-auth, bump this package, and publish.
+#
+# Tag pushes made with GITHUB_TOKEN do not trigger workflows, so after tagging we
+# explicitly dispatch Publish.yml on that tag ref.
+name: Sync requests-unifi-auth
+
+on:
+  schedule:
+    # Every 6 hours (offset minutes to avoid top-of-hour congestion)
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-requests-unifi-auth
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install packaging
+
+      - name: Sync dependency floor
+        id: sync
+        run: python scripts/sync_requests_unifi_auth.py
+
+      - name: Install project and test
+        if: steps.sync.outputs.updated == 'true'
+        run: |
+          pip install -e ".[test]"
+          ruff check src tests scripts
+          pytest -q
+
+      - name: Commit, tag, and push
+        id: release
+        if: steps.sync.outputs.updated == 'true'
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.sync.outputs.package_version }}"
+          DEP="${{ steps.sync.outputs.dep_version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml src/uictlapi/__init__.py
+          git commit -m "Bump requests-unifi-auth floor to ${DEP} for ${VERSION}"
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push origin HEAD:main
+          git push origin "v${VERSION}"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch Publish on the new tag
+        if: steps.sync.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run publish.yml --ref "${{ steps.release.outputs.tag }}"
+          echo "Dispatched Publish for ${{ steps.release.outputs.tag }}"

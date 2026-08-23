@@ -88,6 +88,13 @@ git push origin vX.Y.Z
 The **Publish** workflow runs tests, uploads to PyPI, pushes multi-arch Docker images
 (`X.Y.Z`, `X.Y`, and `latest` when appropriate), and creates a GitHub Release.
 
+### Auto-sync of `requests-unifi-auth`
+
+The **Sync requests-unifi-auth** workflow (schedule every 6 hours, or manual
+`workflow_dispatch`) checks PyPI for a newer `requests-unifi-auth`, raises the
+`>=` floor, bumps this package's patch version, pushes `main` + tag, and
+dispatches **Publish** on that tag.
+
 ## License
 
 MIT

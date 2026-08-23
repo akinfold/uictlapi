@@ -1,11 +1,14 @@
 # Publish on semver tag push: test → PyPI → Docker Hub → GitHub Release.
-# Bump the version on main first, then: git tag vX.Y.Z && git push origin vX.Y.Z
+# Also runnable via workflow_dispatch on a tag ref (used by sync-requests-unifi-auth,
+# because GITHUB_TOKEN tag pushes do not trigger push workflows).
+# Manual release: bump on main, then git tag vX.Y.Z && git push origin vX.Y.Z
 name: Publish
 
 on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 jobs:
   test:
