@@ -23,8 +23,7 @@ Live auth/CSRF compatibility against real controllers is tracked in
 pip install uictlapi
 ```
 
-Requires `requests-unifi-auth>=0.1.5`. First PyPI release is **0.1.1** (tag `v0.1.1`);
-until then use Docker or an editable install from this repository.
+Requires `requests-unifi-auth>=0.1.5`.
 
 ### Docker
 
@@ -62,12 +61,12 @@ Version lives in `pyproject.toml` and `src/uictlapi/__init__.py`. Bump on `main`
 (GitHub Actions → **Bump version**, or locally with `bump-my-version`), then:
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 The **Publish** workflow runs tests, uploads to PyPI, pushes multi-arch Docker images
-(`0.1.1`, `0.1`, `latest` when appropriate), and creates a GitHub Release.
+(`X.Y.Z`, `X.Y`, and `latest` when appropriate), and creates a GitHub Release.
 
 ## License
 
