@@ -33,19 +33,37 @@ docker run --rm akinfold/uictlapi:latest --help
 
 ## Usage
 
-Auth string: `user:pass@host` (or `@/path/to/file` containing the same).
+Auth (`-a` / `--auth`):
+
+- `user:pass@host`
+- `user:pass` — host is taken from the request URL (password must not contain `@`)
+- two-line file — `username` on line 1, `password` on line 2 (password may contain
+  `:` and `@`); host from the request URL
+- `@/path/to/file` — file contains any of the forms above (trailing newline is fine)
+
+Keep credentials out of the shell history:
 
 ```bash
-# Read traffic routes (policy-based routing)
+mkdir -p ~/.config/uictlapi
+printf '%s\n' 'user' 'pass' > ~/.config/uictlapi/auth
+chmod 600 ~/.config/uictlapi/auth
+
+uictlapi get -a @$HOME/.config/uictlapi/auth --no-verify \
+  'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
+```
+
+```bash
+# Inline (host in the auth string)
 uictlapi get -a 'user:pass@192.168.1.1' --no-verify \
   'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
 
-# Same via Docker
-docker run --rm akinfold/uictlapi:latest get -a 'user:pass@192.168.1.1' --no-verify \
+# Same via Docker (mount the auth file)
+docker run --rm -v "$HOME/.config/uictlapi/auth:/auth:ro" akinfold/uictlapi:latest \
+  get -a @/auth --no-verify \
   'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
 
 # POST JSON body (from string or @file)
-uictlapi post -a 'user:pass@192.168.1.1' --no-verify \
+uictlapi post -a @$HOME/.config/uictlapi/auth --no-verify \
   -j '{"enabled":true}' \
   'https://192.168.1.1/proxy/network/v2/api/site/default/some-endpoint'
 

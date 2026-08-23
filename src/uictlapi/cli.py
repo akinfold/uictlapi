@@ -2,6 +2,7 @@ import re
 import sys
 import json
 from typing import Tuple, Dict, List, Optional
+from urllib.parse import urlparse
 
 import click
 import requests
@@ -10,8 +11,8 @@ from requests_unifi_auth import UnifiControllerAuth
 
 from . import __version__
 
-AUTH_REGEXP = re.compile(r'^(?P<username>[^:]+):(?P<password>[^@]+)@(?P<host>[^\s]+)\s*')
-"""Match auth strings like 'foo:bar@192.168.1.1'."""
+AUTH_REGEXP = re.compile(r"^(?P<username>[^:]+):(?P<password>.+)@(?P<host>\S+)\s*$")
+"""Match auth strings like 'foo:bar@192.168.1.1' (password may contain '@')."""
 
 
 def _parse_kv(pairs: Tuple[str, ...]) -> Dict[str, str]:
@@ -31,20 +32,60 @@ def _parse_kv(pairs: Tuple[str, ...]) -> Dict[str, str]:
     return result
 
 
-def _parse_auth(auth: Optional[str]) -> Optional[Tuple[str, str, str]]:
+def _host_from_url(url: Optional[str]) -> Optional[str]:
+    if not url:
+        return None
+    parsed = urlparse(url)
+    return parsed.hostname or None
+
+
+def _parse_auth(
+    auth: Optional[str],
+    *,
+    default_host: Optional[str] = None,
+) -> Optional[Tuple[str, str, str]]:
+    """Parse auth from a string or @file.
+
+    Supported forms:
+    - ``user:pass@host``
+    - ``user:pass`` (host from ``default_host`` / request URL); password must not
+      contain ``@`` — use ``user:pass@host`` or the two-line form instead
+    - two lines ``user`` / ``pass`` (host from ``default_host``); password may
+      contain ``:`` and ``@``
+    """
     if not auth:
         return None
 
-    if auth.startswith('@'):
-        # allow @filename to load auth data from file
+    if auth.startswith("@"):
         path = auth[1:]
         with open(path, "r", encoding="utf-8") as f:
             auth = f.read()
 
+    auth = auth.strip()
+    if not auth:
+        return None
+
+    lines = auth.splitlines()
+    if len(lines) >= 2:
+        user = lines[0].strip()
+        password = lines[1].rstrip("\r\n")
+        if user and default_host is not None:
+            return user, password, default_host
+        return None
+
     match = AUTH_REGEXP.match(auth)
     if match:
-        user, password, host = match.groups()
-        return user, password, host
+        return (
+            match.group("username"),
+            match.group("password"),
+            match.group("host"),
+        )
+
+    # Single-line user:pass without '@' in the value (avoids user:p@ss ambiguity)
+    if ":" in auth and "@" not in auth and default_host:
+        user, password = auth.split(":", 1)
+        if user:
+            return user, password, default_host
 
     return None
 
@@ -156,7 +197,14 @@ def common_options(func):
         click.option("-p", "--param", "params", multiple=True, help="Query param, e.g. -p 'key=value'"),
         click.option("-d", "--data", "data", multiple=True, help="Request body or form field. Use @filename to read file"),
         click.option("-j", "--json", "json_text", help="JSON body as string or @filename to read"),
-        click.option("-a", "--auth", help="Auth data as user:pass@host. For example: 'foo:bar@192.168.1.1'. Use @filename to read data from file."),
+        click.option(
+            "-a",
+            "--auth",
+            help=(
+                "Auth as user:pass@host, or user:pass / two-line user\\npass "
+                "(host from URL). Use @filename to read from a file."
+            ),
+        ),
         click.option("-t", "--timeout", type=float, default=30.0, show_default=True, help="Request timeout in seconds"),
         click.option("--no-allow-redirects", "allow_redirects", flag_value=False, default=True, help="Disable redirects"),
         click.option("--no-verify", "verify", flag_value=False, default=True, help="Disable SSL verification"),
@@ -237,7 +285,13 @@ def _run(method, url, header, params, data, json_text, auth, timeout, allow_redi
     headers = _parse_kv(header)
     params_d = _merge_params(params)
     json_body = _load_json(json_text)
-    auth_data = _parse_auth(auth)
+    auth_data = _parse_auth(auth, default_host=_host_from_url(url))
+    if auth and auth_data is None:
+        click.echo(
+            "Invalid --auth. Use user:pass@host, user:pass (with URL host), or @file.",
+            err=True,
+        )
+        sys.exit(2)
     try:
         resp = _request(
             method=method,

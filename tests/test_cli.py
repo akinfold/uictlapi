@@ -10,12 +10,50 @@ def test_parse_kv_basic():
 def test_parse_auth_direct_and_file(tmp_path):
     assert cli._parse_auth("user:pass@host") == ("user", "pass", "host")
     p = tmp_path / "auth.txt"
-    p.write_text("foo:bar@192.0.2.1")
+    p.write_text("foo:bar@192.0.2.1\n")
     assert cli._parse_auth("@" + str(p)) == ("foo", "bar", "192.0.2.1")
+
+
+def test_parse_auth_user_pass_uses_url_host(tmp_path):
+    assert cli._parse_auth("user:secret", default_host="192.0.2.1") == (
+        "user",
+        "secret",
+        "192.0.2.1",
+    )
+    p = tmp_path / "creds.txt"
+    p.write_text("admin:s3cret\n")
+    assert cli._parse_auth("@" + str(p), default_host="unifi.example") == (
+        "admin",
+        "s3cret",
+        "unifi.example",
+    )
+
+
+def test_parse_auth_two_line_file(tmp_path):
+    p = tmp_path / "creds.txt"
+    p.write_text("admin\np@ss:word\n")
+    assert cli._parse_auth("@" + str(p), default_host="192.0.2.1") == (
+        "admin",
+        "p@ss:word",
+        "192.0.2.1",
+    )
+
+
+def test_parse_auth_password_may_contain_at():
+    assert cli._parse_auth("user:p@ss@host.example") == ("user", "p@ss", "host.example")
 
 
 def test_parse_auth_invalid():
     assert cli._parse_auth("invalidstring") is None
+    assert cli._parse_auth("user:pass") is None  # no host and no default_host
+    # Single-line value with '@' is always treated as user:pass@host (use two-line
+    # file if the password itself contains '@').
+    assert cli._parse_auth("user:p@ss", default_host="h") == ("user", "p", "ss")
+
+
+def test_host_from_url():
+    assert cli._host_from_url("https://192.168.1.1/proxy/network/v2/api") == "192.168.1.1"
+    assert cli._host_from_url("not-a-url") is None
 
 
 def test_load_json_string_and_file_and_plain(tmp_path):
