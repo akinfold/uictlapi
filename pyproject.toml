@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uictlapi"
-version = "0.1.2"
+version = "0.1.3"
 description = "Curl-like CLI for the UniFi Controller / UniFi OS Web UI API, with login and CSRF handled for you."
 readme = "README.md"
 authors = [{name = "Roman Akinfeev", email = "akinfold@gmail.com"}]
@@ -74,7 +74,7 @@ omit = [
 ]
 
 [tool.bumpversion]
-current_version = "0.1.2"
+current_version = "0.1.3"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"

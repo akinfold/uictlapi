@@ -36,16 +36,18 @@ docker run --rm akinfold/uictlapi:latest --help
 Auth (`-a` / `--auth`):
 
 - `user:pass@host`
-- `user:pass` — host is taken from the request URL (password must not contain `@`)
-- two-line file — `username` on line 1, `password` on line 2 (password may contain
-  `:` and `@`); host from the request URL
-- `@/path/to/file` — file contains any of the forms above (trailing newline is fine)
+- three-line file — `username`, `password`, `host` (password may contain `:` and `@`)
+- `user:pass` or two-line `user` / `pass` — host from the request URL (less safe;
+  prefer an explicit host in the file)
+- `@/path/to/file` — file contains any of the forms above
 
-Keep credentials out of the shell history:
+**Host check:** if credentials name a host, it must match the URL hostname
+(case-insensitive). On mismatch the CLI exits without sending the request or
+credentials.
 
 ```bash
 mkdir -p ~/.config/uictlapi
-printf '%s\n' 'user' 'pass' > ~/.config/uictlapi/auth
+printf '%s\n' 'user' 'pass' '192.168.1.1' > ~/.config/uictlapi/auth
 chmod 600 ~/.config/uictlapi/auth
 
 uictlapi get -a @$HOME/.config/uictlapi/auth --no-verify \

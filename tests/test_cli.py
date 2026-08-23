@@ -1,4 +1,7 @@
 import json
+
+import pytest
+
 from uictlapi import cli
 
 
@@ -39,6 +42,12 @@ def test_parse_auth_two_line_file(tmp_path):
     )
 
 
+def test_parse_auth_three_line_file_includes_host(tmp_path):
+    p = tmp_path / "creds.txt"
+    p.write_text("admin\np@ss:word\n192.0.2.1\n")
+    assert cli._parse_auth("@" + str(p)) == ("admin", "p@ss:word", "192.0.2.1")
+
+
 def test_parse_auth_password_may_contain_at():
     assert cli._parse_auth("user:p@ss@host.example") == ("user", "p@ss", "host.example")
 
@@ -46,7 +55,7 @@ def test_parse_auth_password_may_contain_at():
 def test_parse_auth_invalid():
     assert cli._parse_auth("invalidstring") is None
     assert cli._parse_auth("user:pass") is None  # no host and no default_host
-    # Single-line value with '@' is always treated as user:pass@host (use two-line
+    # Single-line value with '@' is always treated as user:pass@host (use three-line
     # file if the password itself contains '@').
     assert cli._parse_auth("user:p@ss", default_host="h") == ("user", "p", "ss")
 
@@ -54,6 +63,43 @@ def test_parse_auth_invalid():
 def test_host_from_url():
     assert cli._host_from_url("https://192.168.1.1/proxy/network/v2/api") == "192.168.1.1"
     assert cli._host_from_url("not-a-url") is None
+
+
+def test_auth_host_matches_url():
+    assert cli._auth_host_matches_url("192.168.1.1", "https://192.168.1.1/proxy/x")
+    assert cli._auth_host_matches_url("Unifi.Example", "https://unifi.example/api")
+    assert not cli._auth_host_matches_url("192.168.1.1", "https://192.168.1.2/proxy/x")
+    assert not cli._auth_host_matches_url("192.168.1.1", "not-a-url")
+
+
+def test_run_refuses_auth_host_mismatch(monkeypatch, capsys):
+    monkeypatch.setattr(
+        cli,
+        "_request",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not send")),
+    )
+
+    with pytest.raises(SystemExit) as exited:
+        cli._run(
+            method="GET",
+            url="https://192.168.1.2/proxy/network/v2/api",
+            header=(),
+            params=(),
+            data=(),
+            json_text=None,
+            auth="user:pass@192.168.1.1",
+            timeout=1.0,
+            allow_redirects=True,
+            verify=False,
+            output=None,
+            pretty=False,
+            show_headers=False,
+            status_only=False,
+        )
+    assert exited.value.code == 2
+    err = capsys.readouterr().err
+    assert "does not match URL host" in err
+    assert "Refusing to send credentials" in err
 
 
 def test_load_json_string_and_file_and_plain(tmp_path):

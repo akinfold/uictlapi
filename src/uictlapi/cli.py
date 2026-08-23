@@ -39,6 +39,18 @@ def _host_from_url(url: Optional[str]) -> Optional[str]:
     return parsed.hostname or None
 
 
+def _hosts_equal(left: str, right: str) -> bool:
+    return left.strip().casefold() == right.strip().casefold()
+
+
+def _auth_host_matches_url(auth_host: str, url: str) -> bool:
+    """Return True if credentials are allowed for this URL host."""
+    url_host = _host_from_url(url)
+    if not url_host:
+        return False
+    return _hosts_equal(auth_host, url_host)
+
+
 def _parse_auth(
     auth: Optional[str],
     *,
@@ -48,10 +60,13 @@ def _parse_auth(
 
     Supported forms:
     - ``user:pass@host``
+    - three lines ``user`` / ``pass`` / ``host`` (password may contain ``:`` and ``@``)
     - ``user:pass`` (host from ``default_host`` / request URL); password must not
-      contain ``@`` — use ``user:pass@host`` or the two-line form instead
-    - two lines ``user`` / ``pass`` (host from ``default_host``); password may
-      contain ``:`` and ``@``
+      contain ``@``
+    - two lines ``user`` / ``pass`` (host from ``default_host``)
+
+    When the credential includes an explicit host, callers must refuse to send it
+    to a different URL host (see ``_auth_host_matches_url``).
     """
     if not auth:
         return None
@@ -66,7 +81,15 @@ def _parse_auth(
         return None
 
     lines = auth.splitlines()
-    if len(lines) >= 2:
+    if len(lines) >= 3:
+        user = lines[0].strip()
+        password = lines[1].rstrip("\r\n")
+        host = lines[2].strip()
+        if user and host:
+            return user, password, host
+        return None
+
+    if len(lines) == 2:
         user = lines[0].strip()
         password = lines[1].rstrip("\r\n")
         if user and default_host is not None:
@@ -201,8 +224,8 @@ def common_options(func):
             "-a",
             "--auth",
             help=(
-                "Auth as user:pass@host, or user:pass / two-line user\\npass "
-                "(host from URL). Use @filename to read from a file."
+                "Auth as user:pass@host, or three-line user/pass/host file "
+                "(host must match the URL). Use @filename to read from a file."
             ),
         ),
         click.option("-t", "--timeout", type=float, default=30.0, show_default=True, help="Request timeout in seconds"),
@@ -288,10 +311,21 @@ def _run(method, url, header, params, data, json_text, auth, timeout, allow_redi
     auth_data = _parse_auth(auth, default_host=_host_from_url(url))
     if auth and auth_data is None:
         click.echo(
-            "Invalid --auth. Use user:pass@host, user:pass (with URL host), or @file.",
+            "Invalid --auth. Use user:pass@host, three-line user/pass/host file, "
+            "user:pass (with URL host), or @file.",
             err=True,
         )
         sys.exit(2)
+    if auth_data is not None:
+        _user, _password, auth_host = auth_data
+        if not _auth_host_matches_url(auth_host, url):
+            url_host = _host_from_url(url)
+            click.echo(
+                f"Auth host {auth_host!r} does not match URL host {url_host!r}. "
+                "Refusing to send credentials.",
+                err=True,
+            )
+            sys.exit(2)
     try:
         resp = _request(
             method=method,
