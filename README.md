@@ -14,6 +14,8 @@ does not invent domain commands (`routes apply`, inventory, multi-controller orc
 
 Live auth/CSRF compatibility against real controllers is tracked in
 [`requests-unifi-auth` COMPATIBILITY.md](https://github.com/akinfold/requests-unifi-auth/blob/main/COMPATIBILITY.md).
+Verified with this CLI: **uictlapi 0.1.3** against **UniFi Network 10.5.67**
+(`GET …/trafficroutes` → HTTP 200, 2026-08-24).
 
 ## Installation
 
@@ -31,6 +33,38 @@ Requires `requests-unifi-auth>=0.1.5`.
 docker run --rm akinfold/uictlapi:latest --help
 ```
 
+## Finding API URLs
+
+UniFi does not publish a stable public catalog of every Web UI path. Copy them from the
+browser:
+
+1. Open the UniFi Network UI and sign in.
+2. Open DevTools → **Network**, filter by Fetch/XHR.
+3. Click the screen that does what you want (traffic routes, clients, …).
+4. Pick a request to your controller (often under `/proxy/network/...`).
+5. Copy the full URL (or path) and reuse it with `uictlapi get|post|…`.
+
+Paths change between UniFi Network versions; treat DevTools as the source of truth.
+
+## Safety
+
+- Create a **dedicated local Admin** for automation (not Owner / Super Admin). Prefer the
+  minimum role that can call the endpoints you need.
+- Store credentials in a file with mode `600`, not in the shell history:
+
+  ```bash
+  mkdir -p ~/.config/uictlapi
+  printf '%s\n' 'user' 'pass' '192.168.1.1' > ~/.config/uictlapi/auth
+  chmod 600 ~/.config/uictlapi/auth
+  ```
+
+- Prefer an auth file that includes the **host** (three-line form or `user:pass@host`).
+  The CLI refuses to send credentials when that host does not match the URL hostname.
+- `--no-verify` skips TLS certificate checks. Convenient on LAN with the default UniFi
+  certificate; for anything beyond a trusted lab network, install/trust a proper CA and
+  omit `--no-verify`.
+- Never paste passwords, cookies, or CSRF tokens into issues or chat logs.
+
 ## Usage
 
 Auth (`-a` / `--auth`):
@@ -41,15 +75,7 @@ Auth (`-a` / `--auth`):
   prefer an explicit host in the file)
 - `@/path/to/file` — file contains any of the forms above
 
-**Host check:** if credentials name a host, it must match the URL hostname
-(case-insensitive). On mismatch the CLI exits without sending the request or
-credentials.
-
 ```bash
-mkdir -p ~/.config/uictlapi
-printf '%s\n' 'user' 'pass' '192.168.1.1' > ~/.config/uictlapi/auth
-chmod 600 ~/.config/uictlapi/auth
-
 uictlapi get -a @$HOME/.config/uictlapi/auth --no-verify \
   'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
 ```
@@ -73,7 +99,8 @@ uictlapi --version
 ```
 
 Common flags mirror curl-ish habits: `-H` / `-p` / `-d` / `-j` / `-o` / `--show-headers` /
-`--status-only` / `--no-verify` / `-t`. Exit status `1` on HTTP ≥ 400, `2` on transport errors.
+`--status-only` / `--no-verify` / `-t`. Exit status `1` on HTTP ≥ 400, `2` on transport
+errors (including auth host mismatch).
 
 ## Releasing
 
