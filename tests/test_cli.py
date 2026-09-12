@@ -248,3 +248,15 @@ def test_cli_version():
     result = CliRunner().invoke(cli_group, ["--version"])
     assert result.exit_code == 0
     assert __version__ in result.output
+
+
+def test_cli_help_describes_credentials_and_exit_codes():
+    from click.testing import CliRunner
+    from uictlapi.cli import cli as cli_group
+
+    result = CliRunner().invoke(cli_group, ["--help"])
+    assert result.exit_code == 0
+    assert "username, password, host" in result.output
+    assert "must match the request URL" in result.output
+    assert "Exit codes:" in result.output
+    assert "uictlapi get -a @auth" in result.output

@@ -241,10 +241,23 @@ def common_options(func):
     return func
 
 
-@click.group()
+@click.group(
+    context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 100},
+    epilog=(
+        "Credentials: use -a @FILE with three lines: username, password, host. "
+        "The host must match the request URL, or uictlapi exits before sending credentials.\n\n"
+        "Exit codes: 0 success; 1 HTTP status 400 or higher; "
+        "2 invalid authentication data, host mismatch, or transport error.\n\n"
+        "Example:\n  uictlapi get -a @auth https://192.0.2.1/proxy/network/api/self"
+    ),
+)
 @click.version_option(version=__version__, prog_name="uictlapi")
 def cli():
-    """Curl-like CLI for the UniFi Controller / UniFi OS Web UI API."""
+    """Send authenticated requests to the UniFi Controller or UniFi OS Web UI API.
+
+    Choose an HTTP method, pass a full controller URL, and use that command's
+    --help option for request headers, query parameters, bodies, and output.
+    """
     pass
 
 

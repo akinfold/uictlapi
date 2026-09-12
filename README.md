@@ -1,8 +1,11 @@
 # uictlapi
 
 [![PyPI](https://img.shields.io/pypi/v/uictlapi.svg?logo=pypi&logoColor=white)](https://pypi.org/project/uictlapi/)
+[![Coverage](https://akinfold.github.io/uictlapi/coverage.svg)](https://github.com/akinfold/uictlapi/actions/workflows/test.yml)
 [![Docker](https://img.shields.io/docker/v/akinfold/uictlapi/latest?logo=docker&logoColor=white&label=docker)](https://hub.docker.com/r/akinfold/uictlapi)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/akinfold/uictlapi/blob/main/LICENSE)
+[![CodeFactor](https://www.codefactor.io/repository/github/akinfold/uictlapi/badge)](https://www.codefactor.io/repository/github/akinfold/uictlapi)
+[![Downloads](https://static.pepy.tech/badge/uictlapi)](https://pepy.tech/project/uictlapi)
 
 Curl-like CLI for the UniFi Controller / UniFi OS Web UI API — with login and CSRF
 handled for you.
@@ -18,6 +21,7 @@ Verified with this CLI: **uictlapi 0.1.3** against **UniFi Network 10.5.67**
 (`GET …/trafficroutes` → HTTP 200, 2026-08-24).
 
 See the [changelog](CHANGELOG.md) for release history.
+Security reports are handled through the [security policy](SECURITY.md).
 
 ## Installation
 

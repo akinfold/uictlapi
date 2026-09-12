@@ -38,6 +38,7 @@ classifiers = [
 Homepage = "https://github.com/akinfold/uictlapi"
 Repository = "https://github.com/akinfold/uictlapi"
 Issues = "https://github.com/akinfold/uictlapi/issues"
+Changelog = "https://github.com/akinfold/uictlapi/blob/main/CHANGELOG.md"
 
 [project.scripts]
 uictlapi = "uictlapi.cli:cli"

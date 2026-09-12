@@ -7,6 +7,13 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Added a GitHub Pages coverage badge and public project health badges.
+- Added a security policy with private vulnerability reporting instructions.
+- Expanded root command help with credential formats, host protection, exit codes,
+  and a complete example.
+
 ## [0.1.3] - 2026-08-23
 
 ### Added
