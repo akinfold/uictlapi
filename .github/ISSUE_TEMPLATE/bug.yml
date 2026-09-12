@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a reproducible problem with uictlapi
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Remove credentials, cookies, CSRF tokens, public IP addresses, and personal hostnames before submitting logs or commands.
+  - type: input
+    id: version
+    attributes:
+      label: uictlapi version
+      description: Run `uictlapi --version`.
+      placeholder: "uictlapi, version 0.1.3"
+    validations:
+      required: true
+  - type: input
+    id: network-version
+    attributes:
+      label: UniFi Network version
+      placeholder: "10.5.67"
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - PyPI
+        - Docker Hub
+        - Source checkout
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Sanitized command
+      description: Replace credentials, hosts, addresses, site names, and resource IDs with synthetic values.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include the exit code and sanitized output or traceback.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Additional context
+      description: Include the operating system, Python version, or Docker platform when relevant.

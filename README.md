@@ -17,6 +17,8 @@ Live auth/CSRF compatibility against real controllers is tracked in
 Verified with this CLI: **uictlapi 0.1.3** against **UniFi Network 10.5.67**
 (`GET …/trafficroutes` → HTTP 200, 2026-08-24).
 
+See the [changelog](CHANGELOG.md) for release history.
+
 ## Installation
 
 ### pip
