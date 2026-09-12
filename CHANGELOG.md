@@ -7,6 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-13
+
 ### Added
 
 - Added a GitHub Pages coverage badge and public project health badges.
@@ -51,7 +53,8 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Support GET, POST, PUT, PATCH, DELETE, HEAD, and OPTIONS requests.
 - Added Docker images for AMD64 and ARM64.
 
-[Unreleased]: https://github.com/akinfold/uictlapi/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/akinfold/uictlapi/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/akinfold/uictlapi/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/akinfold/uictlapi/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/akinfold/uictlapi/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/akinfold/uictlapi/compare/v0.1.0...v0.1.1
