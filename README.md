@@ -31,7 +31,7 @@ Security reports are handled through the [security policy](SECURITY.md).
 pip install uictlapi
 ```
 
-Requires `requests>=2.32.4` and `requests-unifi-auth>=0.2.0`.
+Requires `requests>=2.32.4` and `requests-unifi-auth>=0.2.1`.
 
 ### Docker
 

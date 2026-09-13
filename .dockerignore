@@ -21,7 +21,6 @@ coverage.xml
 .pytest_cache
 .hypothesis
 .DS_Store
-LICENSE
 .gitignore
 .gitattributes
 .github/
