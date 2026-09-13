@@ -112,26 +112,6 @@ Common flags mirror curl-ish habits: `-H` / `-p` / `-d` / `-j` / `-o` / `--show-
 `--status-only` / `--no-verify` / `--ca-bundle` / `--allow-insecure-http` / `-t`. Exit
 status `1` on HTTP ≥ 400, `2` on transport errors (including auth origin mismatch).
 
-## Releasing
-
-Version lives in `pyproject.toml` and `src/uictlapi/__init__.py`. Bump on `main` first
-(GitHub Actions → **Bump version**, or locally with `bump-my-version`), then:
-
-```bash
-git tag vX.Y.Z
-git push origin vX.Y.Z
-```
-
-The **Publish** workflow runs tests, uploads to PyPI, pushes multi-arch Docker images
-(`X.Y.Z`, `X.Y`, and `latest` when appropriate), and creates a GitHub Release.
-
-### Auto-sync of `requests-unifi-auth`
-
-The **Sync requests-unifi-auth** workflow (schedule every 6 hours, or manual
-`workflow_dispatch`) checks PyPI for a newer `requests-unifi-auth`, raises the
-`>=` floor, bumps this package's patch version, pushes `main` + tag, and
-dispatches **Publish** on that tag.
-
 ## License
 
 MIT
