@@ -31,7 +31,7 @@ Security reports are handled through the [security policy](SECURITY.md).
 pip install uictlapi
 ```
 
-Requires `requests-unifi-auth>=0.1.5`.
+Requires `requests>=2.32.4` and `requests-unifi-auth>=0.2.0`.
 
 ### Docker
 
@@ -60,15 +60,19 @@ Paths change between UniFi Network versions; treat DevTools as the source of tru
 
   ```bash
   mkdir -p ~/.config/uictlapi
-  printf '%s\n' 'user' 'pass' '192.168.1.1' > ~/.config/uictlapi/auth
+  printf '%s\n' 'user' 'pass' 'controller.example' > ~/.config/uictlapi/auth
   chmod 600 ~/.config/uictlapi/auth
   ```
 
-- Prefer an auth file that includes the **host** (three-line form or `user:pass@host`).
-  The CLI refuses to send credentials when that host does not match the URL hostname.
-- `--no-verify` skips TLS certificate checks. Convenient on LAN with the default UniFi
-  certificate; for anything beyond a trusted lab network, install/trust a proper CA and
-  omit `--no-verify`.
+- Prefer an auth file that includes the **host[:port]** (three-line form or
+  `user:pass@host[:port]`). The CLI refuses to send credentials unless the scheme,
+  normalized hostname, and effective port match the request URL exactly.
+- TLS certificate verification is enabled by default. Use `--ca-bundle PATH` to trust a
+  specific CA bundle. `--no-verify` disables certificate checks and should be limited to
+  a trusted lab network.
+- HTTP authentication sends credentials in plaintext and is disabled by default. When
+  `--auth` targets an HTTP URL, use `--allow-insecure-http` only when that risk is
+  intentional.
 - Never paste passwords, cookies, or CSRF tokens into issues or chat logs.
 
 ## Usage
@@ -82,31 +86,31 @@ Auth (`-a` / `--auth`):
 - `@/path/to/file` — file contains any of the forms above
 
 ```bash
-uictlapi get -a @$HOME/.config/uictlapi/auth --no-verify \
-  'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
+uictlapi get -a @$HOME/.config/uictlapi/auth \
+  'https://controller.example/proxy/network/v2/api/site/default/trafficroutes'
 ```
 
 ```bash
 # Inline (host in the auth string)
-uictlapi get -a 'user:pass@192.168.1.1' --no-verify \
-  'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
+uictlapi get -a 'user:pass@controller.example' \
+  'https://controller.example/proxy/network/v2/api/site/default/trafficroutes'
 
 # Same via Docker (mount the auth file)
 docker run --rm -v "$HOME/.config/uictlapi/auth:/auth:ro" akinfold/uictlapi:latest \
-  get -a @/auth --no-verify \
-  'https://192.168.1.1/proxy/network/v2/api/site/default/trafficroutes'
+  get -a @/auth \
+  'https://controller.example/proxy/network/v2/api/site/default/trafficroutes'
 
 # POST JSON body (from string or @file)
-uictlapi post -a @$HOME/.config/uictlapi/auth --no-verify \
+uictlapi post -a @$HOME/.config/uictlapi/auth \
   -j '{"enabled":true}' \
-  'https://192.168.1.1/proxy/network/v2/api/site/default/some-endpoint'
+  'https://controller.example/proxy/network/v2/api/site/default/some-endpoint'
 
 uictlapi --version
 ```
 
 Common flags mirror curl-ish habits: `-H` / `-p` / `-d` / `-j` / `-o` / `--show-headers` /
-`--status-only` / `--no-verify` / `-t`. Exit status `1` on HTTP ≥ 400, `2` on transport
-errors (including auth host mismatch).
+`--status-only` / `--no-verify` / `--ca-bundle` / `--allow-insecure-http` / `-t`. Exit
+status `1` on HTTP ≥ 400, `2` on transport errors (including auth origin mismatch).
 
 ## Releasing
 

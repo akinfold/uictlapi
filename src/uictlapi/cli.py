@@ -1,10 +1,12 @@
+import ipaddress
 import re
 import sys
 import json
 from typing import Tuple, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import ParseResult, urlparse
 
 import click
+import idna
 import requests
 
 from requests_unifi_auth import UnifiControllerAuth
@@ -32,23 +34,72 @@ def _parse_kv(pairs: Tuple[str, ...]) -> Dict[str, str]:
     return result
 
 
+def _parse_request_url(url: str) -> Optional[ParseResult]:
+    """Parse a controller URL without allowing malformed authorities through."""
+    try:
+        if not isinstance(url, str) or any(ord(char) <= 32 for char in url):
+            return None
+        parsed = urlparse(url)
+        scheme = parsed.scheme.casefold()
+        if scheme not in {"http", "https"}:
+            return None
+        if (
+            not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            return None
+        if parsed.netloc.endswith(":") or "\\" in parsed.netloc or "%" in parsed.netloc:
+            return None
+        port = parsed.port
+        host = parsed.hostname
+        if ":" in host:
+            ipaddress.IPv6Address(host)
+            suffix = parsed.netloc[parsed.netloc.index("]") + 1 :]
+            if suffix and (not suffix.startswith(":") or not suffix[1:].isdigit()):
+                return None
+        else:
+            if "[" in parsed.netloc or "]" in parsed.netloc:
+                return None
+            idna.encode(host, uts46=True)
+        if port is not None and not 1 <= port <= 65535:
+            return None
+    except (AttributeError, TypeError, UnicodeError, ValueError):
+        return None
+    return parsed
+
+
 def _host_from_url(url: Optional[str]) -> Optional[str]:
     if not url:
         return None
-    parsed = urlparse(url)
-    return parsed.hostname or None
+    parsed = _parse_request_url(url)
+    if parsed is None:
+        return None
+    port = parsed.port
+    host = parsed.hostname
+    if ":" in host:
+        host = f"[{host}]"
+    return f"{host}:{port}" if port is not None else host
 
 
-def _hosts_equal(left: str, right: str) -> bool:
-    return left.strip().casefold() == right.strip().casefold()
-
-
-def _auth_host_matches_url(auth_host: str, url: str) -> bool:
-    """Return True if credentials are allowed for this URL host."""
-    url_host = _host_from_url(url)
-    if not url_host:
+def _auth_host_matches_url(
+    auth_host: str, url: str, *, allow_insecure_http: bool = False
+) -> bool:
+    """Return whether an authority identifies the URL's exact origin."""
+    parsed = _parse_request_url(url)
+    if parsed is None:
         return False
-    return _hosts_equal(auth_host, url_host)
+    try:
+        auth = UnifiControllerAuth(
+            "",
+            "",
+            auth_host,
+            scheme=parsed.scheme,
+            allow_insecure_http=allow_insecure_http,
+        )
+    except (TypeError, ValueError):
+        return False
+    return auth.is_controller_url(url)
 
 
 def _parse_auth(
@@ -139,7 +190,7 @@ def _request(
     params: Dict[str, str],
     data: List[str],
     json_body,
-    auth: Tuple[str, str, str],
+    auth: Optional[UnifiControllerAuth],
     timeout: Optional[float],
     allow_redirects: bool,
     verify: bool,
@@ -151,8 +202,8 @@ def _request(
         "allow_redirects": allow_redirects,
         "verify": verify,
     }
-    if auth:
-        kwargs["auth"] = UnifiControllerAuth(*auth)
+    if auth is not None:
+        kwargs["auth"] = auth
     if json_body is not None:
         kwargs["json"] = json_body
     elif data:
@@ -172,13 +223,21 @@ def _request(
     return resp
 
 
-def _print_response(resp: requests.Response, show_headers: bool, pretty: bool, output: Optional[str], status_only: bool):
+def _print_response(
+    resp: requests.Response,
+    show_headers: bool,
+    pretty: bool,
+    output: Optional[str],
+    status_only: bool,
+):
     if status_only:
         click.echo(str(resp.status_code))
         return
 
     if show_headers:
-        click.echo(f"HTTP/{resp.raw.version if hasattr(resp.raw, 'version') else '1.1'} {resp.status_code} {resp.reason}")
+        click.echo(
+            f"HTTP/{resp.raw.version if hasattr(resp.raw, 'version') else '1.1'} {resp.status_code} {resp.reason}"
+        )
         for k, v in resp.headers.items():
             click.echo(f"{k}: {v}")
         click.echo("")
@@ -199,7 +258,10 @@ def _print_response(resp: requests.Response, show_headers: bool, pretty: bool, o
     except Exception:
         text = None
 
-    if pretty and ("application/json" in content_type or (text and (text.strip().startswith("{") or text.strip().startswith("[")))):
+    if pretty and (
+        "application/json" in content_type
+        or (text and (text.strip().startswith("{") or text.strip().startswith("[")))
+    ):
         try:
             parsed = resp.json()
             click.echo(json.dumps(parsed, indent=2, ensure_ascii=False))
@@ -216,10 +278,29 @@ def _print_response(resp: requests.Response, show_headers: bool, pretty: bool, o
 
 def common_options(func):
     options = [
-        click.option("-H", "--header", multiple=True, help="Header, e.g. -H 'Accept: application/json' or -H 'X-Api-Key=VALUE'"),
-        click.option("-p", "--param", "params", multiple=True, help="Query param, e.g. -p 'key=value'"),
-        click.option("-d", "--data", "data", multiple=True, help="Request body or form field. Use @filename to read file"),
-        click.option("-j", "--json", "json_text", help="JSON body as string or @filename to read"),
+        click.option(
+            "-H",
+            "--header",
+            multiple=True,
+            help="Header, e.g. -H 'Accept: application/json' or -H 'X-Api-Key=VALUE'",
+        ),
+        click.option(
+            "-p",
+            "--param",
+            "params",
+            multiple=True,
+            help="Query param, e.g. -p 'key=value'",
+        ),
+        click.option(
+            "-d",
+            "--data",
+            "data",
+            multiple=True,
+            help="Request body or form field. Use @filename to read file",
+        ),
+        click.option(
+            "-j", "--json", "json_text", help="JSON body as string or @filename to read"
+        ),
         click.option(
             "-a",
             "--auth",
@@ -228,13 +309,52 @@ def common_options(func):
                 "(host must match the URL). Use @filename to read from a file."
             ),
         ),
-        click.option("-t", "--timeout", type=float, default=30.0, show_default=True, help="Request timeout in seconds"),
-        click.option("--no-allow-redirects", "allow_redirects", flag_value=False, default=True, help="Disable redirects"),
-        click.option("--no-verify", "verify", flag_value=False, default=True, help="Disable SSL verification"),
+        click.option(
+            "-t",
+            "--timeout",
+            type=float,
+            default=30.0,
+            show_default=True,
+            help="Request timeout in seconds",
+        ),
+        click.option(
+            "--allow-redirects/--no-allow-redirects",
+            default=True,
+            help="Follow HTTP redirects",
+        ),
+        click.option(
+            "--verify/--no-verify",
+            default=True,
+            help="Verify TLS certificates",
+        ),
+        click.option(
+            "--ca-bundle",
+            type=click.Path(exists=True, dir_okay=False, readable=True),
+            help="Use this CA bundle for TLS certificate verification",
+        ),
+        click.option(
+            "--allow-insecure-http",
+            is_flag=True,
+            default=False,
+            help="Allow credentials over plaintext HTTP (unsafe)",
+        ),
         click.option("-o", "--output", help="Write response body to file"),
-        click.option("--no-pretty", "pretty", flag_value=False, default=True, help="Disable pretty printing of JSON"),
-        click.option("--show-headers/--no-show-headers", default=False, help="Show response headers"),
-        click.option("--status-only", is_flag=True, default=False, help="Only print response HTTP status code"),
+        click.option(
+            "--pretty/--no-pretty",
+            default=True,
+            help="Pretty-print JSON responses",
+        ),
+        click.option(
+            "--show-headers/--no-show-headers",
+            default=False,
+            help="Show response headers",
+        ),
+        click.option(
+            "--status-only",
+            is_flag=True,
+            default=False,
+            help="Only print response HTTP status code",
+        ),
     ]
     for opt in reversed(options):
         func = opt(func)
@@ -244,8 +364,10 @@ def common_options(func):
 @click.group(
     context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 100},
     epilog=(
-        "Credentials: use -a @FILE with three lines: username, password, host. "
-        "The host must match the request URL, or uictlapi exits before sending credentials.\n\n"
+        "Credentials: use -a @FILE with three lines: username, password, host[:port]. "
+        "The HTTPS origin must match the request URL, or uictlapi exits before sending credentials. "
+        "TLS verification is enabled by default; use --ca-bundle PATH for a custom CA, "
+        "or --allow-insecure-http only when plaintext HTTP is intentional.\n\n"
         "Exit codes: 0 success; 1 HTTP status 400 or higher; "
         "2 invalid authentication data, host mismatch, or transport error.\n\n"
         "Example:\n  uictlapi get -a @auth https://192.0.2.1/proxy/network/api/self"
@@ -264,60 +386,314 @@ def cli():
 @cli.command()
 @common_options
 @click.argument("url")
-def get(url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only):
+def get(
+    url,
+    header,
+    params,
+    data,
+    json_text,
+    auth,
+    timeout,
+    allow_redirects,
+    verify,
+    ca_bundle,
+    allow_insecure_http,
+    output,
+    pretty,
+    show_headers,
+    status_only,
+):
     """HTTP GET"""
-    _run("GET", url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only)
+    _run(
+        "GET",
+        url,
+        header,
+        params,
+        data,
+        json_text,
+        auth,
+        timeout,
+        allow_redirects,
+        verify,
+        allow_insecure_http,
+        output,
+        pretty,
+        show_headers,
+        status_only,
+        ca_bundle,
+    )
 
 
 @cli.command()
 @common_options
 @click.argument("url")
-def post(url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only):
+def post(
+    url,
+    header,
+    params,
+    data,
+    json_text,
+    auth,
+    timeout,
+    allow_redirects,
+    verify,
+    ca_bundle,
+    allow_insecure_http,
+    output,
+    pretty,
+    show_headers,
+    status_only,
+):
     """HTTP POST"""
-    _run("POST", url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only)
+    _run(
+        "POST",
+        url,
+        header,
+        params,
+        data,
+        json_text,
+        auth,
+        timeout,
+        allow_redirects,
+        verify,
+        allow_insecure_http,
+        output,
+        pretty,
+        show_headers,
+        status_only,
+        ca_bundle,
+    )
 
 
 @cli.command()
 @common_options
 @click.argument("url")
-def put(url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only):
+def put(
+    url,
+    header,
+    params,
+    data,
+    json_text,
+    auth,
+    timeout,
+    allow_redirects,
+    verify,
+    ca_bundle,
+    allow_insecure_http,
+    output,
+    pretty,
+    show_headers,
+    status_only,
+):
     """HTTP PUT"""
-    _run("PUT", url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only)
+    _run(
+        "PUT",
+        url,
+        header,
+        params,
+        data,
+        json_text,
+        auth,
+        timeout,
+        allow_redirects,
+        verify,
+        allow_insecure_http,
+        output,
+        pretty,
+        show_headers,
+        status_only,
+        ca_bundle,
+    )
 
 
 @cli.command()
 @common_options
 @click.argument("url")
-def delete(url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only):
+def delete(
+    url,
+    header,
+    params,
+    data,
+    json_text,
+    auth,
+    timeout,
+    allow_redirects,
+    verify,
+    ca_bundle,
+    allow_insecure_http,
+    output,
+    pretty,
+    show_headers,
+    status_only,
+):
     """HTTP DELETE"""
-    _run("DELETE", url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only)
+    _run(
+        "DELETE",
+        url,
+        header,
+        params,
+        data,
+        json_text,
+        auth,
+        timeout,
+        allow_redirects,
+        verify,
+        allow_insecure_http,
+        output,
+        pretty,
+        show_headers,
+        status_only,
+        ca_bundle,
+    )
 
 
 @cli.command()
 @common_options
 @click.argument("url")
-def head(url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only):
+def head(
+    url,
+    header,
+    params,
+    data,
+    json_text,
+    auth,
+    timeout,
+    allow_redirects,
+    verify,
+    ca_bundle,
+    allow_insecure_http,
+    output,
+    pretty,
+    show_headers,
+    status_only,
+):
     """HTTP HEAD"""
-    _run("HEAD", url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only)
+    _run(
+        "HEAD",
+        url,
+        header,
+        params,
+        data,
+        json_text,
+        auth,
+        timeout,
+        allow_redirects,
+        verify,
+        allow_insecure_http,
+        output,
+        pretty,
+        show_headers,
+        status_only,
+        ca_bundle,
+    )
 
 
 @cli.command()
 @common_options
 @click.argument("url")
-def options(url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only):
+def options(
+    url,
+    header,
+    params,
+    data,
+    json_text,
+    auth,
+    timeout,
+    allow_redirects,
+    verify,
+    ca_bundle,
+    allow_insecure_http,
+    output,
+    pretty,
+    show_headers,
+    status_only,
+):
     """HTTP OPTIONS"""
-    _run("OPTIONS", url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only)
+    _run(
+        "OPTIONS",
+        url,
+        header,
+        params,
+        data,
+        json_text,
+        auth,
+        timeout,
+        allow_redirects,
+        verify,
+        allow_insecure_http,
+        output,
+        pretty,
+        show_headers,
+        status_only,
+        ca_bundle,
+    )
 
 
 @cli.command()
 @common_options
 @click.argument("url")
-def patch(url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only):
+def patch(
+    url,
+    header,
+    params,
+    data,
+    json_text,
+    auth,
+    timeout,
+    allow_redirects,
+    verify,
+    ca_bundle,
+    allow_insecure_http,
+    output,
+    pretty,
+    show_headers,
+    status_only,
+):
     """HTTP PATCH"""
-    _run("PATCH", url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only)
+    _run(
+        "PATCH",
+        url,
+        header,
+        params,
+        data,
+        json_text,
+        auth,
+        timeout,
+        allow_redirects,
+        verify,
+        allow_insecure_http,
+        output,
+        pretty,
+        show_headers,
+        status_only,
+        ca_bundle,
+    )
 
 
-def _run(method, url, header, params, data, json_text, auth, timeout, allow_redirects, verify, output, pretty, show_headers, status_only):
+def _run(
+    method,
+    url,
+    header,
+    params,
+    data,
+    json_text,
+    auth,
+    timeout,
+    allow_redirects,
+    verify,
+    allow_insecure_http=False,
+    output=None,
+    pretty=True,
+    show_headers=False,
+    status_only=False,
+    ca_bundle=None,
+):
+    if _parse_request_url(url) is None:
+        click.echo(
+            "Invalid URL. Use an HTTP(S) URL with a host[:port] authority.", err=True
+        )
+        sys.exit(2)
+    verify = ca_bundle if ca_bundle else verify
     headers = _parse_kv(header)
     params_d = _merge_params(params)
     json_body = _load_json(json_text)
@@ -330,15 +706,41 @@ def _run(method, url, header, params, data, json_text, auth, timeout, allow_redi
         )
         sys.exit(2)
     if auth_data is not None:
-        _user, _password, auth_host = auth_data
-        if not _auth_host_matches_url(auth_host, url):
+        user, password, auth_host = auth_data
+        parsed_url = _parse_request_url(url)
+        try:
+            request_auth = UnifiControllerAuth(
+                user,
+                password,
+                auth_host,
+                scheme=parsed_url.scheme,
+                allow_insecure_http=allow_insecure_http,
+            )
+        except TypeError:
+            click.echo(
+                "Installed requests-unifi-auth lacks the required exact-origin "
+                "security API. Upgrade it before using --auth.",
+                err=True,
+            )
+            sys.exit(2)
+        except ValueError:
+            click.echo(
+                "Invalid authentication target. Use an HTTP(S) URL and a "
+                "host[:port] authority.",
+                err=True,
+            )
+            sys.exit(2)
+        if not request_auth.is_controller_url(url):
             url_host = _host_from_url(url)
             click.echo(
-                f"Auth host {auth_host!r} does not match URL host {url_host!r}. "
+                f"Auth authority {auth_host!r} does not match URL authority "
+                f"{url_host!r}. "
                 "Refusing to send credentials.",
                 err=True,
             )
             sys.exit(2)
+    else:
+        request_auth = None
     try:
         resp = _request(
             method=method,
@@ -347,7 +749,7 @@ def _run(method, url, header, params, data, json_text, auth, timeout, allow_redi
             params=params_d,
             data=list(data),
             json_body=json_body,
-            auth=auth_data,
+            auth=request_auth,
             timeout=timeout,
             allow_redirects=allow_redirects,
             verify=verify,
@@ -356,7 +758,13 @@ def _run(method, url, header, params, data, json_text, auth, timeout, allow_redi
         click.echo(f"Request failed: {e}", err=True)
         sys.exit(2)
 
-    _print_response(resp, show_headers=show_headers, pretty=pretty, output=output, status_only=status_only)
+    _print_response(
+        resp,
+        show_headers=show_headers,
+        pretty=pretty,
+        output=output,
+        status_only=status_only,
+    )
     # exit with non-zero if status >= 400
     if resp.status_code >= 400:
         sys.exit(1)

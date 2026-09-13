@@ -75,7 +75,9 @@ def bump_patch(version: str) -> str:
     return f"{major}.{minor}.{patch + 1}"
 
 
-def replace_group(pattern: re.Pattern[str], text: str, new_version: str, label: str) -> str:
+def replace_group(
+    pattern: re.Pattern[str], text: str, new_version: str, label: str
+) -> str:
     match = pattern.search(text)
     if not match:
         raise RuntimeError(f"Could not update {label}")
@@ -94,7 +96,7 @@ def apply_updates(
     new_package_version: str,
 ) -> Tuple[str, str]:
     pyproject_text = DEP_RE.sub(
-        rf'\g<prefix>{new_dep_version}\g<suffix>',
+        rf"\g<prefix>{new_dep_version}\g<suffix>",
         pyproject_text,
         count=1,
     )
@@ -102,9 +104,14 @@ def apply_updates(
         PROJECT_VERSION_RE, pyproject_text, new_package_version, "project version"
     )
     pyproject_text = replace_group(
-        BUMPVERSION_RE, pyproject_text, new_package_version, "bumpversion current_version"
+        BUMPVERSION_RE,
+        pyproject_text,
+        new_package_version,
+        "bumpversion current_version",
     )
-    init_text = replace_group(INIT_VERSION_RE, init_text, new_package_version, "__version__")
+    init_text = replace_group(
+        INIT_VERSION_RE, init_text, new_package_version, "__version__"
+    )
     return pyproject_text, init_text
 
 

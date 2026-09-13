@@ -15,6 +15,19 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added a security policy with private vulnerability reporting instructions.
 - Expanded root command help with credential formats, host protection, exit codes,
   and a complete example.
+- Added `--ca-bundle` for private certificate authorities and
+  `--allow-insecure-http` for explicit plaintext opt-in.
+
+### Changed
+
+- Require `requests-unifi-auth>=0.2.0`, `requests>=2.32.4`, and `idna>=3.15`.
+- Match credential origins by scheme, normalized hostname, and effective port.
+
+### Security
+
+- Reject malformed or ambiguous request URLs before preparing authentication.
+- Verify TLS certificates by default and refuse plaintext HTTP authentication unless
+  explicitly enabled.
 
 ## [0.1.3] - 2026-08-23
 
