@@ -7,11 +7,15 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-04
+
 ### Changed
 
 - Require Python 3.10 or later; drop support for Python 3.8 and 3.9.
+- Require `requests-unifi-auth>=0.3.0`.
 - Build releases with Hatchling 1.32.0.
 - Test on Python 3.10 and 3.13 in the test and publish workflows.
+- Update the pinned setup-uv and Docker build actions.
 
 ## [0.1.5] - 2026-09-13
 
@@ -85,7 +89,8 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Support GET, POST, PUT, PATCH, DELETE, HEAD, and OPTIONS requests.
 - Added Docker images for AMD64 and ARM64.
 
-[Unreleased]: https://github.com/akinfold/uictlapi/compare/v0.1.5...HEAD
+[Unreleased]: https://github.com/akinfold/uictlapi/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/akinfold/uictlapi/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/akinfold/uictlapi/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/akinfold/uictlapi/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/akinfold/uictlapi/compare/v0.1.2...v0.1.3

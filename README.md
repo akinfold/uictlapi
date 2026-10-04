@@ -25,7 +25,7 @@ Security reports are handled through the [security policy](SECURITY.md).
 
 ## Installation
 
-The next release requires Python 3.10 or later.
+Requires Python 3.10 or later.
 
 ### pip
 
@@ -33,7 +33,7 @@ The next release requires Python 3.10 or later.
 pip install uictlapi
 ```
 
-Requires `requests>=2.32.4` and `requests-unifi-auth>=0.2.1`.
+Requires `requests>=2.32.4` and `requests-unifi-auth>=0.3.0`.
 
 ### Docker
 
