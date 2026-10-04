@@ -7,6 +7,12 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Require Python 3.10 or later; drop support for Python 3.8 and 3.9.
+- Build releases with Hatchling 1.32.0.
+- Test on Python 3.10 and 3.13 in the test and publish workflows.
+
 ## [0.1.5] - 2026-09-13
 
 ### Changed
