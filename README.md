@@ -25,6 +25,8 @@ Security reports are handled through the [security policy](SECURITY.md).
 
 ## Installation
 
+The next release requires Python 3.10 or later.
+
 ### pip
 
 ```bash
